@@ -1171,7 +1171,6 @@ export default function ChatScreen({ appId, onBack, onLogout }: ChatScreenProps)
   ]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const windowEndRef = useRef<HTMLDivElement>(null);
-  const [conversationId, setConversationId] = useState<string | null>(null);
 
   useEffect(() => {
     windowEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1185,48 +1184,69 @@ export default function ChatScreen({ appId, onBack, onLogout }: ChatScreenProps)
     setInputText('');
     setIsTyping(true);
 
-    const apiKey = import.meta.env.VITE_DIFY_API_KEY;
-    const apiUrl = import.meta.env.VITE_DIFY_API_URL || 'https://api.dify.ai/v1';
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_DIFY_API_KEY;
 
     if (apiKey) {
       try {
-        const response = await fetch(\`\${apiUrl}/chat-messages\`, {
+        // Build multi-turn chat history (skip the initial bot greeting)
+        const history = messages
+          .filter(msg => !(msg.sender === 'bot' && messages.indexOf(msg) === 0))
+          .map(msg => ({
+            role: msg.sender === 'user' ? 'user' : 'model',
+            parts: [{ text: msg.text }]
+          }));
+
+        const response = await fetch(\`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=\${apiKey}\`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': \`Bearer \${apiKey}\`
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            inputs: {},
-            query: userText,
-            response_mode: 'blocking',
-            user: 'standalone-user',
-            conversation_id: conversationId || undefined
+            system_instruction: {
+              parts: [{ text: 'You are a helpful Customer Support assistant for a software product. Be concise, friendly, and professional.' }]
+            },
+            contents: [
+              ...history,
+              { role: 'user', parts: [{ text: userText }] }
+            ],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 1024
+            }
           })
         });
 
         if (!response.ok) {
-          throw new Error(\`API Error: \${response.statusText}\`);
+          let errorData = '';
+          try {
+            const errJson = await response.clone().json();
+            if (errJson && errJson.error && errJson.error.message) {
+              errorData = \`\${response.status} \${errJson.error.message}\`;
+            } else {
+              errorData = \`\${response.status} \${response.statusText}\`;
+            }
+          } catch (_) {
+            errorData = \`\${response.status} \${response.statusText}\`;
+          }
+          throw new Error(errorData);
         }
 
         const data = await response.json();
         setIsTyping(false);
 
-        if (data.conversation_id) {
-          setConversationId(data.conversation_id);
-        }
+        const answerText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No text candidates returned.';
 
         const botMsg: Message = {
-          id: data.message_id || Date.now().toString(),
+          id: Date.now().toString(),
           sender: 'bot',
-          text: data.answer || 'No response answer returned.',
-          citations: data.metadata?.retriever_resources?.map((r: any) => \`\${r.dataset_name}: \${r.document_name}\`) || []
+          text: answerText
         };
         setMessages(prev => [...prev, botMsg]);
       } catch (err) {
-        console.error('Dify API Error:', err);
+        console.error('Gemini API Error:', err);
         setIsTyping(false);
-        const fallbackReply = \`[API Error - falling back to mock] \${info.mockResponses[Math.floor(Math.random() * info.mockResponses.length)]}\`;
+        const errMsg = err instanceof Error ? err.message : String(err);
+        const fallbackReply = \`[API Error: \${errMsg} - falling back to mock] \${info.mockResponses[Math.floor(Math.random() * info.mockResponses.length)]}\`;
         setMessages(prev => [...prev, {
           id: Date.now().toString(),
           sender: 'bot',
