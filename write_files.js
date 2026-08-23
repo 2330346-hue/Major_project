@@ -562,6 +562,14 @@ const INITIAL_APPS: AppTemplate[] = [
     type: 'agent',
     created: '1 week ago',
     iconColor: '#7a5af8'
+  },
+  {
+    id: 'vending-machine',
+    name: 'Vending Machine Agent',
+    description: 'An AI-powered smart vending system with real-time inventory tracking, predictive restocking, and an interactive product analytics dashboard.',
+    type: 'agent',
+    created: 'Just now',
+    iconColor: '#f59e0b'
   }
 ];
 
@@ -1978,10 +1986,11 @@ files['src/App.tsx'] = `import { useState } from 'react';
 import LoginScreen from './components/LoginScreen';
 import DashboardScreen from './components/DashboardScreen';
 import ChatScreen from './components/ChatScreen';
+import VendingScreen from './components/VendingScreen';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'chat'>('dashboard');
+  const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'chat' | 'vending'>('dashboard');
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
 
   const handleLogin = () => {
@@ -1996,7 +2005,11 @@ export default function App() {
 
   const handleRunApp = (appId: string) => {
     setSelectedAppId(appId);
-    setCurrentScreen('chat');
+    if (appId === 'vending-machine') {
+      setCurrentScreen('vending');
+    } else {
+      setCurrentScreen('chat');
+    }
   };
 
   const handleBackToDashboard = () => {
@@ -2016,6 +2029,15 @@ export default function App() {
     );
   }
 
+  if (currentScreen === 'vending') {
+    return (
+      <VendingScreen
+        onBack={handleBackToDashboard}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
   return (
     <ChatScreen 
       appId={selectedAppId} 
@@ -2025,12 +2047,668 @@ export default function App() {
   );
 }`;
 
+// 8. src/components/VendingScreen.tsx
+files['src/components/VendingScreen.tsx'] = `import { useState, useEffect } from 'react';
+import './VendingScreen.css';
+import { ArrowLeft, TrendingUp, Package, Zap, AlertTriangle, RefreshCw, ShoppingCart, Activity, Cpu, Thermometer } from 'lucide-react';
+
+interface Product {
+  id: string;
+  name: string;
+  emoji: string;
+  price: number;
+  stock: number;
+  maxStock: number;
+  sold: number;
+  category: string;
+  color: string;
+  trend: number;
+}
+
+interface VendingScreenProps {
+  onBack: () => void;
+  onLogout: () => void;
+}
+
+const INITIAL_PRODUCTS: Product[] = [
+  { id: 'p1', name: 'Cola Zero', emoji: '🥤', price: 1.50, stock: 8, maxStock: 12, sold: 47, category: 'Drinks', color: '#ef4444', trend: 12 },
+  { id: 'p2', name: 'Sparkling Water', emoji: '💧', price: 1.20, stock: 3, maxStock: 12, sold: 29, category: 'Drinks', color: '#3b82f6', trend: 5 },
+  { id: 'p3', name: 'Energy Boost', emoji: '⚡', price: 2.50, stock: 11, maxStock: 12, sold: 63, category: 'Drinks', color: '#f59e0b', trend: 28 },
+  { id: 'p4', name: 'Protein Bar', emoji: '🍫', price: 2.00, stock: 5, maxStock: 10, sold: 34, category: 'Snacks', color: '#8b5cf6', trend: -3 },
+  { id: 'p5', name: 'Salted Chips', emoji: '🥨', price: 1.80, stock: 1, maxStock: 10, sold: 55, category: 'Snacks', color: '#f97316', trend: 18 },
+  { id: 'p6', name: 'Mixed Nuts', emoji: '🥜', price: 2.20, stock: 9, maxStock: 10, sold: 21, category: 'Snacks', color: '#10b981', trend: 7 },
+  { id: 'p7', name: 'Matcha Latte', emoji: '🍵', price: 3.00, stock: 4, maxStock: 8, sold: 18, category: 'Drinks', color: '#22c55e', trend: 42 },
+  { id: 'p8', name: 'Gummy Bears', emoji: '🐻', price: 1.50, stock: 0, maxStock: 10, sold: 72, category: 'Snacks', color: '#ec4899', trend: -8 },
+];
+
+function MiniBarChart({ data }: { data: number[] }) {
+  const max = Math.max(...data);
+  return (
+    <div className="mini-chart">
+      {data.map((v, i) => (
+        <div key={i} className="mini-bar" style={{ height: \`\${(v / max) * 100}%\` }}></div>
+      ))}
+    </div>
+  );
+}
+
+export default function VendingScreen({ onBack, onLogout }: VendingScreenProps) {
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [totalRevenue, setTotalRevenue] = useState(384.50);
+  const [totalSales, setTotalSales] = useState(339);
+  const [uptime, setUptime] = useState(99.7);
+  const [temp, setTemp] = useState(4.2);
+  const [dispensing, setDispensing] = useState<string | null>(null);
+  const [log, setLog] = useState<string[]>(['[09:12] System boot complete', '[09:13] Inventory sync OK', '[09:41] Sale: Cola Zero x1']);
+  const [, setTick] = useState(0);
+
+  // Simulate live data flicker every 3s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTemp(prev => parseFloat((prev + (Math.random() - 0.5) * 0.3).toFixed(1)));
+      setUptime(prev => Math.min(100, parseFloat((prev + 0.01).toFixed(2))));
+      setTick(t => t + 1);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleDispense = (product: Product) => {
+    if (product.stock === 0 || dispensing) return;
+    setDispensing(product.id);
+    setTimeout(() => {
+      setProducts(prev => prev.map(p =>
+        p.id === product.id ? { ...p, stock: p.stock - 1, sold: p.sold + 1 } : p
+      ));
+      setTotalRevenue(prev => parseFloat((prev + product.price).toFixed(2)));
+      setTotalSales(prev => prev + 1);
+      setLog(prev => [\`[NOW] Dispensed: \${product.name} — $\${product.price.toFixed(2)}\`, ...prev.slice(0, 9)]);
+      setDispensing(null);
+    }, 1200);
+  };
+
+  const handleRestock = (productId: string) => {
+    setProducts(prev => prev.map(p =>
+      p.id === productId ? { ...p, stock: p.maxStock } : p
+    ));
+    const p = products.find(x => x.id === productId);
+    if (p) setLog(prev => [\`[NOW] Restocked: \${p.name} to \${p.maxStock}\`, ...prev.slice(0, 9)]);
+  };
+
+  const lowStock = products.filter(p => p.stock <= 2);
+  const totalItems = products.reduce((a, p) => a + p.stock, 0);
+  const weekSales = [42, 55, 37, 68, 72, 58, totalSales % 80 + 10];
+
+  return (
+    <div className="vending-container">
+      {/* Sidebar */}
+      <aside className="vending-sidebar">
+        <div className="vending-sidebar-header">
+          <div className="vending-logo">
+            <span className="vending-logo-icon">🏪</span>
+            <div>
+              <div className="vending-logo-title">SmartVend</div>
+              <div className="vending-logo-sub">Agent v2.4</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="vending-status-card">
+          <div className="status-row"><Cpu size={14} /><span>Machine Status</span><span className="badge-online">ONLINE</span></div>
+          <div className="status-row"><Thermometer size={14} /><span>Temperature</span><span className="badge-temp">{temp}°C</span></div>
+          <div className="status-row"><Activity size={14} /><span>Uptime</span><span className="badge-uptime">{uptime}%</span></div>
+          <div className="status-row"><Zap size={14} /><span>Power Draw</span><span className="badge-power">142W</span></div>
+        </div>
+
+        {lowStock.length > 0 && (
+          <div className="alert-panel">
+            <div className="alert-title"><AlertTriangle size={13} /> Low Stock Alerts</div>
+            {lowStock.map(p => (
+              <div key={p.id} className="alert-row">
+                <span>{p.emoji} {p.name}</span>
+                <button className="restock-btn" onClick={() => handleRestock(p.id)}><RefreshCw size={11} /> Restock</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="vending-log">
+          <div className="log-title"><Activity size={12} /> Live Log</div>
+          {log.map((entry, i) => (
+            <div key={i} className="log-entry" style={{ opacity: 1 - i * 0.1 }}>{entry}</div>
+          ))}
+        </div>
+
+        <div className="vending-sidebar-footer">
+          <button className="sidebar-nav-btn" onClick={onBack}><ArrowLeft size={14} /> Back to Studio</button>
+          <button className="sidebar-nav-btn danger" onClick={onLogout}>Log Out</button>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <main className="vending-main">
+        <div className="vending-topbar">
+          <div>
+            <h1>Inventory Dashboard</h1>
+            <p>Real-time smart vending analytics — <span className="live-dot-label"><span className="live-dot"></span>LIVE</span></p>
+          </div>
+          <div className="topbar-kpis">
+            <div className="kpi-chip"><TrendingUp size={14} /><span>\${totalRevenue.toFixed(2)}</span><label>Revenue</label></div>
+            <div className="kpi-chip"><ShoppingCart size={14} /><span>{totalSales}</span><label>Total Sales</label></div>
+            <div className="kpi-chip"><Package size={14} /><span>{totalItems}</span><label>Items Left</label></div>
+          </div>
+        </div>
+
+        {/* Weekly chart */}
+        <div className="weekly-chart-card">
+          <div className="card-header"><TrendingUp size={15} /> Weekly Sales Volume</div>
+          <div className="weekly-bars">
+            {['M','T','W','T','F','S','Today'].map((day, i) => (
+              <div key={i} className="weekly-col">
+                <div className="weekly-bar-wrap">
+                  <div className="weekly-bar" style={{ height: \`\${(weekSales[i] / 80) * 100}%\`, background: i === 6 ? '#f59e0b' : 'rgba(21,94,239,0.7)' }}></div>
+                </div>
+                <span className="weekly-label">{day}</span>
+                <span className="weekly-val">{weekSales[i]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Product Grid */}
+        <div className="products-grid">
+          {products.map(product => {
+            const stockPct = (product.stock / product.maxStock) * 100;
+            const isLow = product.stock <= 2;
+            const isEmpty = product.stock === 0;
+            const isDispensing = dispensing === product.id;
+            return (
+              <div
+                key={product.id}
+                className={\`product-card \${isLow ? 'low-stock' : ''} \${isEmpty ? 'empty-stock' : ''} \${selectedProduct?.id === product.id ? 'selected' : ''}\`}
+                onClick={() => setSelectedProduct(selectedProduct?.id === product.id ? null : product)}
+                style={{ '--accent': product.color } as React.CSSProperties}
+              >
+                <div className="product-emoji">{product.emoji}</div>
+                <div className="product-info">
+                  <div className="product-name">{product.name}</div>
+                  <div className="product-category">{product.category}</div>
+                  <div className="product-price">\${product.price.toFixed(2)}</div>
+                </div>
+                <div className="product-stats">
+                  <div className="stock-bar-wrap">
+                    <div className="stock-bar" style={{ width: \`\${stockPct}%\`, background: isLow ? '#ef4444' : product.color }}></div>
+                  </div>
+                  <div className="stock-numbers">
+                    <span className={isEmpty ? 'stock-empty' : isLow ? 'stock-low' : ''}>{product.stock}/{product.maxStock}</span>
+                    <span className={\`trend \${product.trend >= 0 ? 'up' : 'down'}\`}>{product.trend >= 0 ? '▲' : '▼'} {Math.abs(product.trend)}%</span>
+                  </div>
+                  <MiniBarChart data={[product.sold * 0.4, product.sold * 0.6, product.sold * 0.5, product.sold * 0.8, product.sold * 0.7, product.sold * 0.9, product.sold].map(Math.round)} />
+                </div>
+                <div className="product-actions">
+                  <button
+                    className={\`dispense-btn \${isEmpty ? 'disabled' : ''} \${isDispensing ? 'dispensing' : ''}\`}
+                    onClick={e => { e.stopPropagation(); handleDispense(product); }}
+                    disabled={isEmpty || !!dispensing}
+                  >
+                    {isDispensing ? '⚙ Dispensing...' : isEmpty ? 'Out of Stock' : '⬇ Dispense'}
+                  </button>
+                  {isLow && !isEmpty && (
+                    <button className="restock-mini" onClick={e => { e.stopPropagation(); handleRestock(product.id); }}><RefreshCw size={11} /></button>
+                  )}
+                </div>
+                <div className="sold-tag">{product.sold} sold</div>
+              </div>
+            );
+          })}
+        </div>
+      </main>
+    </div>
+  );
+}`;
+
+// 9. src/components/VendingScreen.css
+files['src/components/VendingScreen.css'] = `
+:root {
+  --vend-bg: #050b14;
+  --vend-card: #0b1526;
+  --vend-border: rgba(21, 94, 239, 0.15);
+  --vend-glow: rgba(21, 94, 239, 0.4);
+  --vend-sidebar: #040a12;
+  --text-glow: #60a5fa;
+}
+
+.vending-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background: var(--vend-bg);
+  color: #e2e8f0;
+  font-family: var(--font-sans);
+  overflow: hidden;
+}
+
+/* ─── SIDEBAR ─────────────────────── */
+.vending-sidebar {
+  width: 260px;
+  background: var(--vend-sidebar);
+  border-right: 1px solid var(--vend-border);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.vending-sidebar-header {
+  border-bottom: 1px solid var(--vend-border);
+  padding-bottom: 1rem;
+}
+
+.vending-logo { display: flex; align-items: center; gap: 0.75rem; }
+.vending-logo-icon { font-size: 1.8rem; }
+.vending-logo-title { font-size: 1rem; font-weight: 700; color: white; }
+.vending-logo-sub { font-size: 0.7rem; color: #64748b; font-family: monospace; }
+
+.vending-status-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--vend-border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+.status-row > span:last-child { margin-left: auto; }
+
+.badge-online { color: #22c55e; font-weight: 700; font-size: 0.65rem; letter-spacing: 0.05em; }
+.badge-temp { color: #60a5fa; font-family: monospace; font-size: 0.75rem; }
+.badge-uptime { color: #a3e635; font-family: monospace; font-size: 0.75rem; }
+.badge-power { color: #f59e0b; font-family: monospace; font-size: 0.75rem; }
+
+.alert-panel {
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.alert-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #f87171;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.alert-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  margin-top: 0.3rem;
+}
+
+.restock-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  font-size: 0.68rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.restock-btn:hover { background: rgba(239, 68, 68, 0.3); }
+
+.vending-log {
+  flex: 1;
+  font-family: monospace;
+  font-size: 0.68rem;
+  color: #475569;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow: hidden;
+}
+
+.log-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.3rem;
+}
+
+.log-entry {
+  padding: 0.2rem 0.4rem;
+  border-left: 2px solid rgba(21,94,239,0.3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity 0.5s;
+}
+
+.vending-sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border-top: 1px solid var(--vend-border);
+  padding-top: 0.75rem;
+}
+
+.sidebar-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.07);
+  color: #94a3b8;
+  font-size: 0.8rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.sidebar-nav-btn:hover { background: rgba(255,255,255,0.05); color: white; }
+.sidebar-nav-btn.danger { color: #f87171; border-color: rgba(239,68,68,0.2); }
+.sidebar-nav-btn.danger:hover { background: rgba(239,68,68,0.1); }
+
+/* ─── MAIN ─────────────────────── */
+.vending-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.vending-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.vending-topbar h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: white;
+  letter-spacing: -0.02em;
+}
+
+.vending-topbar p {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 0.15rem;
+}
+
+.live-dot-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  background: #22c55e;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse-green 1.5s infinite;
+}
+
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
+  50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); }
+}
+
+.topbar-kpis {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.kpi-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--vend-border);
+  border-radius: 10px;
+  padding: 0.6rem 1.1rem;
+  min-width: 90px;
+  gap: 0.15rem;
+  transition: border-color 0.2s;
+}
+.kpi-chip:hover { border-color: rgba(21,94,239,0.4); }
+.kpi-chip svg { color: #60a5fa; }
+.kpi-chip > span { font-size: 1.2rem; font-weight: 700; color: white; }
+.kpi-chip > label { font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ─── WEEKLY CHART ─────────────────────── */
+.weekly-chart-card {
+  background: var(--vend-card);
+  border: 1px solid var(--vend-border);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 1rem;
+}
+
+.weekly-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
+  height: 80px;
+}
+
+.weekly-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  height: 100%;
+}
+
+.weekly-bar-wrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.weekly-bar {
+  width: 70%;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.6s ease;
+  min-height: 4px;
+}
+
+.weekly-label { font-size: 0.65rem; color: #64748b; }
+.weekly-val { font-size: 0.7rem; font-weight: 600; color: #94a3b8; }
+
+/* ─── PRODUCT GRID ─────────────────────── */
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.product-card {
+  background: var(--vend-card);
+  border: 1px solid var(--vend-border);
+  border-radius: 12px;
+  padding: 1rem;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  transition: all 0.2s ease;
+}
+
+.product-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent, #3b82f6);
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.product-card:hover {
+  border-color: rgba(255,255,255,0.12);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+}
+
+.product-card:hover::before { opacity: 1; }
+.product-card.selected { border-color: var(--accent, #3b82f6); box-shadow: 0 0 0 1px var(--accent, #3b82f6), 0 8px 25px rgba(0,0,0,0.4); }
+.product-card.low-stock { border-color: rgba(239, 68, 68, 0.25); }
+.product-card.empty-stock { opacity: 0.6; }
+
+.product-emoji { font-size: 2rem; line-height: 1; }
+
+.product-info { display: flex; flex-direction: column; gap: 0.15rem; }
+.product-name { font-size: 0.9rem; font-weight: 600; color: white; }
+.product-category { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; }
+.product-price { font-size: 1rem; font-weight: 700; color: var(--accent, #3b82f6); }
+
+.product-stats { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.stock-bar-wrap {
+  height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.stock-bar { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+
+.stock-numbers {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #64748b;
+}
+.stock-empty { color: #ef4444 !important; font-weight: 700; }
+.stock-low { color: #f59e0b !important; font-weight: 700; }
+.trend.up { color: #22c55e; }
+.trend.down { color: #ef4444; }
+
+/* ─── MINI CHART ─────────────────────── */
+.mini-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 28px;
+}
+.mini-bar {
+  flex: 1;
+  background: rgba(21, 94, 239, 0.4);
+  border-radius: 2px 2px 0 0;
+  min-height: 3px;
+  transition: height 0.4s ease;
+}
+
+.product-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.dispense-btn {
+  flex: 1;
+  padding: 0.45rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--accent, #3b82f6);
+  background: rgba(21, 94, 239, 0.12);
+  color: var(--accent, #3b82f6);
+}
+.dispense-btn:hover:not(.disabled) { background: rgba(21, 94, 239, 0.25); transform: scale(1.02); }
+.dispense-btn.disabled { border-color: #334155; color: #475569; background: transparent; cursor: not-allowed; }
+.dispense-btn.dispensing { background: rgba(245, 158, 11, 0.15); border-color: #f59e0b; color: #f59e0b; animation: shimmer 0.6s infinite alternate; }
+
+@keyframes shimmer {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
+
+.restock-mini {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid rgba(239,68,68,0.3);
+  background: rgba(239,68,68,0.08);
+  color: #f87171;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.restock-mini:hover { background: rgba(239,68,68,0.2); }
+
+.sold-tag {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.75rem;
+  font-size: 0.65rem;
+  color: #475569;
+  font-family: monospace;
+}
+`;
+
+
 // Write files to target directories
 Object.keys(files).forEach(filePath => {
   const fullPath = path.join(targetRoot, filePath);
   ensureDir(path.dirname(fullPath));
   fs.writeFileSync(fullPath, files[filePath], 'utf8');
-  console.log(`Successfully wrote ${filePath}`);
+  console.log('Successfully wrote ' + filePath);
 });
 
 // Copy public logo assets from original web folder

@@ -44,6 +44,14 @@ const INITIAL_APPS: AppTemplate[] = [
     type: 'agent',
     created: '1 week ago',
     iconColor: '#7a5af8'
+  },
+  {
+    id: 'vending-machine',
+    name: 'Vending Machine Agent',
+    description: 'An AI-powered smart vending system with real-time inventory tracking, predictive restocking, and an interactive product analytics dashboard.',
+    type: 'agent',
+    created: 'Just now',
+    iconColor: '#f59e0b'
   }
 ];
 

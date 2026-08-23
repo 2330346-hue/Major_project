@@ -2,10 +2,11 @@ import { useState } from 'react';
 import LoginScreen from './components/LoginScreen';
 import DashboardScreen from './components/DashboardScreen';
 import ChatScreen from './components/ChatScreen';
+import VendingScreen from './components/VendingScreen';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'chat'>('dashboard');
+  const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'chat' | 'vending'>('dashboard');
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
 
   const handleLogin = () => {
@@ -20,7 +21,11 @@ export default function App() {
 
   const handleRunApp = (appId: string) => {
     setSelectedAppId(appId);
-    setCurrentScreen('chat');
+    if (appId === 'vending-machine') {
+      setCurrentScreen('vending');
+    } else {
+      setCurrentScreen('chat');
+    }
   };
 
   const handleBackToDashboard = () => {
@@ -36,6 +41,15 @@ export default function App() {
       <DashboardScreen 
         onLogout={handleLogout} 
         onRunApp={handleRunApp} 
+      />
+    );
+  }
+
+  if (currentScreen === 'vending') {
+    return (
+      <VendingScreen
+        onBack={handleBackToDashboard}
+        onLogout={handleLogout}
       />
     );
   }
