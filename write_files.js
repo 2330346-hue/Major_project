@@ -1171,29 +1171,81 @@ export default function ChatScreen({ appId, onBack, onLogout }: ChatScreenProps)
   ]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const windowEndRef = useRef<HTMLDivElement>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
   useEffect(() => {
     windowEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputText.trim()) return;
-    const userMsg: Message = { id: Date.now().toString(), sender: 'user', text: inputText };
+    const userText = inputText.trim();
+    const userMsg: Message = { id: Date.now().toString(), sender: 'user', text: userText };
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      setIsTyping(false);
-      const randomReply = info.mockResponses[Math.floor(Math.random() * info.mockResponses.length)];
-      const botMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        sender: 'bot',
-        text: randomReply,
-        citations: ['Documentation:L15', 'System settings reference']
-      };
-      setMessages(prev => [...prev, botMsg]);
-    }, 1500);
+    const apiKey = import.meta.env.VITE_DIFY_API_KEY;
+    const apiUrl = import.meta.env.VITE_DIFY_API_URL || 'https://api.dify.ai/v1';
+
+    if (apiKey) {
+      try {
+        const response = await fetch(\`\${apiUrl}/chat-messages\`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': \`Bearer \${apiKey}\`
+          },
+          body: JSON.stringify({
+            inputs: {},
+            query: userText,
+            response_mode: 'blocking',
+            user: 'standalone-user',
+            conversation_id: conversationId || undefined
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(\`API Error: \${response.statusText}\`);
+        }
+
+        const data = await response.json();
+        setIsTyping(false);
+
+        if (data.conversation_id) {
+          setConversationId(data.conversation_id);
+        }
+
+        const botMsg: Message = {
+          id: data.message_id || Date.now().toString(),
+          sender: 'bot',
+          text: data.answer || 'No response answer returned.',
+          citations: data.metadata?.retriever_resources?.map((r: any) => \`\${r.dataset_name}: \${r.document_name}\`) || []
+        };
+        setMessages(prev => [...prev, botMsg]);
+      } catch (err) {
+        console.error('Dify API Error:', err);
+        setIsTyping(false);
+        const fallbackReply = \`[API Error - falling back to mock] \${info.mockResponses[Math.floor(Math.random() * info.mockResponses.length)]}\`;
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          sender: 'bot',
+          text: fallbackReply
+        }]);
+      }
+    } else {
+      setTimeout(() => {
+        setIsTyping(false);
+        const randomReply = info.mockResponses[Math.floor(Math.random() * info.mockResponses.length)];
+        const botMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          sender: 'bot',
+          text: randomReply,
+          citations: ['Documentation:L15', 'System settings reference']
+        };
+        setMessages(prev => [...prev, botMsg]);
+      }, 1500);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
