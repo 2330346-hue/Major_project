@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import './DashboardScreen.css';
-import { Search, Bell, Plus, MessageSquare, Bot, Route, LogOut, ArrowRight } from 'lucide-react';
+import { Search, Bell, Plus, MessageSquare, Bot, Route, LogOut, ArrowRight, FileSearch } from 'lucide-react';
 import taraImg from '../assets/pexels-tara-winstead-8386434.jpg';
 
 interface AppTemplate {
@@ -13,6 +13,30 @@ interface AppTemplate {
 }
 
 const INITIAL_APPS: AppTemplate[] = [
+  {
+    id: 'rag-assistant',
+    name: 'Enterprise RAG Knowledge Assistant',
+    description: 'Retrieval-Augmented Generation agent with local document indexing, chunk search, and grounded citations powered by Gemma 2B.',
+    type: 'agent',
+    created: 'Just now',
+    iconColor: '#38bdf8'
+  },
+  {
+    id: 'mp3-to-text',
+    name: 'MP3 to Text Transcriber',
+    description: 'Local AI speech recognition agent. Upload or record MP3/WAV audio to transcribe speech to text, preview audio with wave playback, and export transcripts.',
+    type: 'agent',
+    created: 'Just now',
+    iconColor: '#a855f7'
+  },
+  {
+    id: 'resume-analyzer',
+    name: 'AI Resume ATS Analyzer',
+    description: 'Upload your resume and discover how ATS-friendly it is with detailed category scoring, keyword matching, and improvement plans.',
+    type: 'agent',
+    created: 'Just now',
+    iconColor: '#155eef'
+  },
   {
     id: 'customer-support',
     name: 'Customer Support Bot',
@@ -94,6 +118,9 @@ export default function DashboardScreen({ onLogout, onRunApp }: DashboardScreenP
           </div>
           <nav className="nav-links">
             <span className="nav-link active">Studio</span>
+            <span className="nav-link" onClick={() => onRunApp('resume-analyzer')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <FileSearch size={16} /> Resume Analyzer
+            </span>
             <span className="nav-link">Explore</span>
             <span className="nav-link">Knowledge</span>
             <span className="nav-link">Tools</span>
@@ -178,9 +205,10 @@ export default function DashboardScreen({ onLogout, onRunApp }: DashboardScreenP
               <div>
                 <div className="card-top">
                   <div className="app-icon-wrapper" style={{ backgroundColor: app.iconColor }}>
-                    {app.type === 'chatbot' && <MessageSquare size={20} />}
-                    {app.type === 'agent' && <Bot size={20} />}
-                    {app.type === 'workflow' && <Route size={20} />}
+                    {app.id === 'resume-analyzer' ? <FileSearch size={20} /> : null}
+                    {app.id !== 'resume-analyzer' && app.type === 'chatbot' && <MessageSquare size={20} />}
+                    {app.id !== 'resume-analyzer' && app.type === 'agent' && <Bot size={20} />}
+                    {app.id !== 'resume-analyzer' && app.type === 'workflow' && <Route size={20} />}
                   </div>
                   <span className={`app-badge badge-${app.type}`}>
                     {app.type.charAt(0).toUpperCase() + app.type.slice(1)}

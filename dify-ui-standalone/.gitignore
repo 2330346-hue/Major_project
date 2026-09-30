@@ -21,4 +21,13 @@ dist-ssr
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+# Virtual Environments & Python
+.venv/
+.venv*/
+__pycache__/
+*.pyc
+
+# Environment files
+.env
+.env.*
+!.env.example

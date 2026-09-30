@@ -1,0 +1,25 @@
+{
+  "documents": [
+    {
+      "id": "doc-handbook",
+      "title": "Enterprise Employee Handbook & IT Policies",
+      "category": "Human Resources",
+      "createdAt": "2026-09-02T22:12:48.607Z",
+      "content": "\nCompany Remote Work Policy:\nEmployees are eligible for up to 3 remote working days per week with manager approval. Core working hours are between 10:00 AM and 4:00 PM in the employee's local time zone.\n\nLeave & Vacation Policy:\nFull-time team members receive 25 days of paid annual leave plus 10 national holidays. Sick leave provides up to 12 days annually without requiring a doctor's note for absences under 3 consecutive days.\n\nIT & Security Protocols:\nAll company hardware must have full-disk BitLocker encryption enabled. Passwords must be at least 14 characters long and renewed every 90 days. Two-Factor Authentication (2FA) is mandatory across all internal tools, VPNs, and GitHub accounts.\n"
+    },
+    {
+      "id": "doc-ai-specs",
+      "title": "Project Architecture & Local AI Specifications",
+      "category": "Engineering",
+      "createdAt": "2026-09-02T22:12:48.609Z",
+      "content": "\nLocal LLM Architecture:\nThe system uses Ollama running locally on port 11434 with Google Gemma 2B (gemma:2b). The model has 2 billion parameters and is optimized for low-latency inference on local hardware without cloud data transmission.\n\nWhisper Speech Recognition:\nAudio transcription utilizes OpenAI Whisper Tiny running as a local Flask API on port 5000. It decodes MP3, WAV, and WebM streams using FFmpeg and runs entirely on the CPU with FP32 precision.\n\nRetrieval-Augmented Generation (RAG):\nThe RAG pipeline extracts text from uploaded documents, segments them into 400-character chunks with a 60-character sliding window, and indexes them using BM25 and term frequency vectors. When a user asks a question, the top relevant chunks are retrieved with cosine similarity scores and formatted into the prompt context for Gemma 2B.\n"
+    },
+    {
+      "id": "doc-customer-faq",
+      "title": "Customer Support & Product Returns FAQ",
+      "category": "Customer Service",
+      "createdAt": "2026-09-02T22:12:48.609Z",
+      "content": "\nOrder Cancellation & Returns:\nCustomers can cancel orders within 2 hours of placement for a 100% instant refund. Return windows are open for 30 calendar days following delivery. Products must be in original packaging with all tags attached.\n\nShipping & Delivery Timelines:\nStandard shipping takes 3-5 business days across North America and Europe. Express overnight shipping is available for orders placed before 1:00 PM EST. Free international shipping applies to orders over $150.\n\nSupport Hours & Escalations:\nOur local support team is active 24/7 via live chat. Tier-2 technical inquiries are addressed within 4 business hours, and critical account security escalations receive priority callback within 15 minutes.\n"
+    }
+  ]
+}

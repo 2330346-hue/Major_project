@@ -386,6 +386,8 @@
   line-height: 1.5;
   box-shadow: var(--shadow-xs);
   max-width: calc(100% - 4rem);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .user-message .msg-bubble {
@@ -539,4 +541,105 @@
   padding: 0.25rem 0.5rem;
   border-radius: var(--radius-sm);
   font-weight: 500;
+}
+
+/* Voice & Audio Feature */
+.voice-status-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  transition: all 0.2s ease-in-out;
+}
+
+.voice-status-banner.recording {
+  background-color: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+}
+
+.voice-status-banner.transcribing {
+  background-color: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #d97706;
+}
+
+.voice-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.voice-status-banner.recording .voice-status-dot {
+  background-color: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+  animation: audioPulse 1.2s infinite;
+}
+
+.voice-status-banner.transcribing .voice-status-dot {
+  background-color: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+}
+
+.toolbar-btn.recording-active {
+  color: #ef4444 !important;
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  border-radius: 50%;
+  animation: audioPulse 1.5s infinite;
+}
+
+.toolbar-btn.transcribing-active {
+  color: #f59e0b !important;
+}
+
+@keyframes audioPulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+/* AI Thinking Indicator & Timestamps */
+.ai-thinking-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.ai-thinking-text {
+  font-size: 0.825rem;
+  color: #94a3b8;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.message-timestamp {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  margin-top: 0.35rem;
+  display: block;
+}
+
+.user-message .message-timestamp {
+  text-align: right;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.bot-message .message-timestamp {
+  text-align: left;
+  color: #94a3b8;
+}
+
+.msg-error-bubble {
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+  background-color: rgba(239, 68, 68, 0.08) !important;
+  color: #ef4444 !important;
+}
+
+.clear-chat-top-btn:hover {
+  color: #ef4444 !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
 }
